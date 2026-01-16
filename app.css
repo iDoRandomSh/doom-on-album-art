@@ -1,0 +1,46 @@
+body {
+  background: black;
+  color: #00ff00;
+  font-family: monospace;
+  text-align: center;
+}
+
+h1 {
+  margin-top: 20px;
+}
+
+#doom-wrapper {
+  margin: 20px auto;
+}
+
+#doom-wrapper.hidden {
+  display: none;
+}
+
+#doom > .dosbox-container {
+  width: 640px;
+  height: 400px;
+}
+
+#doom > .dosbox-container > .dosbox-overlay {
+  background: url("DOOM.png");
+  background-size: cover;
+}
+
+.controls {
+  margin-top: 15px;
+}
+
+button {
+  background: #00ff00;
+  color: black;
+  border: none;
+  padding: 10px 18px;
+  margin: 5px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #66ff66;
+}

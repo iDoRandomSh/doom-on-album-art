@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>DOOM ON ALBUM COVER PREVIEW</title>
+<script src="js-dos-v3.js"></script>
+<script src="js-dos-api.js"></script>
+<style>
+  body { background: #000; color: #0f0; font-family: 'Courier New', monospace; text-align: center; margin: 0; overflow-x: hidden; }
+  #doom { width: 640px; height: 400px; margin: 20px auto; border: 2px solid #333; box-shadow: 0 0 20px rgba(0,255,0,0.1); }
+  .log { background: #111; color: #0a0; padding: 10px; width: 620px; margin: 10px auto; height: 80px; overflow-y: hidden; font-size: 11px; text-align: left; border: 1px solid #222; border-radius: 4px; }
+  .controls { margin-top: 20px; }
+  button { background: #0f0; color: #000; border: none; padding: 15px 30px; font-weight: bold; cursor: pointer; border-radius: 4px; transition: transform 0.1s; }
+  button:active { transform: scale(0.95); }
+  .hint { color: #444; font-size: 10px; margin-top: 10px; }
+</style>
+</head>
+<body>
+
+  <h2>DOOM MEDIA DRIVER V6</h2>
+  <div id="doom"></div>
+  <div class="log" id="status">System: Ready. Press START to initialize engine.</div>
+  
+  <div class="controls">
+    <button id="start-btn">INITIALIZE ENGINE</button>
+  </div>
+  <p class="hint">Toggle PREV/NEXT track to move. PLAY to Shoot/Open. Win+A for preview.</p>
+
+  <audio id="silence" loop>
+    <source src="https://raw.githubusercontent.com/anars/blank-audio/master/10-seconds-of-silence.mp3" type="audio/mp3">
+  </audio>
+
+<script>
+let dosbox = null;
+let state = { left: false, right: false, action: false };
+const statusEl = document.getElementById('status');
+
+function log(msg) {
+    statusEl.innerHTML = `> ${msg}<br>${statusEl.innerHTML}`;
+}
+
+//KEY EMISSION ENGINE
+function emitKey(code, keyCode, isDown) {
+    const canvas = document.querySelector('canvas');
+    const type = isDown ? 'keydown' : 'keyup';
+    
+    const ev = new KeyboardEvent(type, {
+        key: code, code: code, keyCode: keyCode, which: keyCode,
+        bubbles: true, cancelable: true, view: window
+    });
+    
+    Object.defineProperty(ev, 'keyCode', { get: () => keyCode });
+    Object.defineProperty(ev, 'which', { get: () => keyCode });
+
+    if (canvas) canvas.dispatchEvent(ev);
+    window.dispatchEvent(ev);
+}
+
+//THE TICK ENGINE
+setInterval(() => {
+    //Movement: Run Forward (38) + Turn (37/39)
+    if (state.left) {
+        emitKey('ArrowUp', 38, true);
+        emitKey('ArrowLeft', 37, true);
+    }
+    if (state.right) {
+        emitKey('ArrowUp', 38, true);
+        emitKey('ArrowRight', 39, true);
+    }
+    
+    //Custm Action Binds: Shoot (S=83), Open (W=87), Menu (Enter=13)
+    if (state.action) {
+        emitKey('s', 83, true); 
+        emitKey('w', 87, true); 
+        emitKey('Enter', 13, true); 
+    }
+}, 50);
+
+//MOVEMENT LOGIC
+function stopAllMovement() {
+    state.left = false;
+    state.right = false;
+    // Release movement keys aggressively raaahhhh
+    ['ArrowUp', 'ArrowLeft', 'ArrowRight'].forEach((key, i) => {
+        const code = [38, 37, 39][i];
+        for(let j=0; j<3; j++) {
+            setTimeout(() => emitKey(key, code, false), j * 10);
+        }
+    });
+}
+
+function handlePrev() {
+    const next = !state.left;
+    stopAllMovement();
+    state.left = next;
+    log(state.left ? "MODE: RUNNING LEFT" : "MODE: IDLE");
+}
+
+function handleNext() {
+    const next = !state.right;
+    stopAllMovement();
+    state.right = next;
+    log(state.right ? "MODE: RUNNING RIGHT" : "MODE: IDLE");
+}
+
+function handleAction() {
+    log("INPUT: ACTION (S/W)");
+    state.action = true;
+    setTimeout(() => {
+        state.action = false;
+        emitKey('s', 83, false);
+        emitKey('w', 87, false);
+        emitKey('Enter', 13, false);
+    }, 250);
+}
+
+//ALBUM PREVIEW THINGY UPDATE
+let lastUrl = null;
+
+function updatePreview() {
+    if (!navigator.mediaSession) return;
+    const canvas = document.querySelector('canvas');
+    if (!canvas) return;
+
+    canvas.toBlob((blob) => {
+        if (!blob) return;
+        const url = URL.createObjectURL(blob);
+        
+        const modeTitle = state.left ? "RUN LEFT" : (state.right ? "RUN RIGHT" : "DOOM");
+        navigator.mediaSession.metadata = new MediaMetadata({
+            title: `DOOM: ${modeTitle}`,
+            artist: "S=Shoot | W=Open",
+            artwork: [{ src: url, sizes: '512x512', type: 'image/png' }]
+        });
+
+        //clear old blob to prevent memory leak
+        if (lastUrl) URL.revokeObjectURL(lastUrl);
+        lastUrl = url;
+    }, 'image/png');
+}
+
+function initMedia() {
+    document.getElementById('silence').play().catch(() => log("Audio blocked. Interaction needed."));
+    if ('mediaSession' in navigator) {
+        navigator.mediaSession.playbackState = 'playing';
+        
+        navigator.mediaSession.setActionHandler('previoustrack', () => {
+            document.querySelector('canvas')?.focus();
+            handlePrev();
+        });
+        
+        navigator.mediaSession.setActionHandler('nexttrack', () => {
+            document.querySelector('canvas')?.focus();
+            handleNext();
+        });
+        
+        const playPause = () => {
+            document.querySelector('canvas')?.focus();
+            handleAction();
+            navigator.mediaSession.playbackState = 'playing';
+        };
+        
+        navigator.mediaSession.setActionHandler('play', playPause);
+        navigator.mediaSession.setActionHandler('pause', playPause);
+    }
+}
+
+//BOOTSTRAP
+document.getElementById('start-btn').addEventListener('click', function() {
+    this.style.display = 'none';
+    initMedia();
+    
+    dosbox = new Dosbox({
+        id: 'doom',
+        onload: (instance) => {
+            instance.run('DOOM-@evilution.zip', './DOOM/DOOM.EXE');
+            log("Running DOOM... Press WIN+A to play it on your album cover!");
+            log("Prev/Next track to move left/right while running. Play/Pause to Shoot/Open doosr.");            
+            // Start the preview loop
+            setInterval(updatePreview, 66); 
+        }
+    });
+});
+</script>
+</body>
+</html>
