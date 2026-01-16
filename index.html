@@ -129,7 +129,7 @@ function updatePreview() {
         const modeTitle = state.left ? "RUN LEFT" : (state.right ? "RUN RIGHT" : "DOOM");
         navigator.mediaSession.metadata = new MediaMetadata({
             title: `DOOM: ${modeTitle}`,
-            artist: "S=Shoot | W=Open",
+            artist: "⏮ Turn left | ⏭ Turn right | ⏯ Shoot/Interact",
             artwork: [{ src: url, sizes: '512x512', type: 'image/png' }]
         });
 
@@ -185,4 +185,5 @@ document.getElementById('start-btn').addEventListener('click', function() {
 </body>
 
 </html>
+
 
